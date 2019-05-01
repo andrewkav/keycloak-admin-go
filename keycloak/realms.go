@@ -191,7 +191,7 @@ type RoleRepresentation struct {
 	ClientRole  *bool          `json:"clientRole,omitempty"`
 	Composite   *bool          `json:"composite,omitempty"`
 	Composites  RoleComposites `json:"composites,omitempty"`
-	ContainerID string         `json:"containerID,omitempty"`
+	ContainerID string         `json:"containerId,omitempty"`
 	Description string         `json:"description,omitempty"`
 	ID          string         `json:"id,omitempty"`
 	Name        string         `json:"name,omitempty"`

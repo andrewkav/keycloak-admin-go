@@ -346,7 +346,25 @@ func (us *UserService) ResetPassword(ctx context.Context, realm string, userID s
 	return err
 }
 
-// RealmRoles fetches the list of realm roles for the user
+// AvailableRealmRoles fetches realm-level roles that can be mapped
+func (us *UserService) AvailableRealmRoles(ctx context.Context, realm, userID string) ([]RoleRepresentation, error) {
+	// nolint: goconst
+	path := "/realms/{realm}/users/{id}/role-mappings/realm/available"
+
+	var roles []RoleRepresentation
+
+	_, err := us.client.newRequest(ctx).
+		SetPathParams(map[string]string{
+			"realm": realm,
+			"id":    userID,
+		}).
+		SetResult(&roles).
+		Get(path)
+
+	return roles, err
+}
+
+// RealmRoles fetches the list of realm-level roles for the user
 func (us *UserService) RealmRoles(ctx context.Context, realm, userID string) ([]RoleRepresentation, error) {
 	// nolint: goconst
 	path := "/realms/{realm}/users/{id}/role-mappings/realm"
@@ -362,6 +380,38 @@ func (us *UserService) RealmRoles(ctx context.Context, realm, userID string) ([]
 		Get(path)
 
 	return roles, err
+}
+
+// AddRealmRole adds realm-level role mappings to the user
+func (us *UserService) AddRealmRoles(ctx context.Context, realm, userID string, roles []RoleRepresentation) error {
+	// nolint: goconst
+	path := "/realms/{realm}/users/{id}/role-mappings/realm"
+
+	_, err := us.client.newRequest(ctx).
+		SetPathParams(map[string]string{
+			"realm": realm,
+			"id":    userID,
+		}).
+		SetBody(roles).
+		Post(path)
+
+	return err
+}
+
+// DeleteRealmRole deletes realm-level role mappings from the user
+func (us *UserService) DeleteRealmRoles(ctx context.Context, realm, userID string, roles []RoleRepresentation) error {
+	// nolint: goconst
+	path := "/realms/{realm}/users/{id}/role-mappings/realm"
+
+	_, err := us.client.newRequest(ctx).
+		SetPathParams(map[string]string{
+			"realm": realm,
+			"id":    userID,
+		}).
+		SetBody(roles).
+		Delete(path)
+
+	return err
 }
 
 // ClientRoles fetches the list of client roles for the user
