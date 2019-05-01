@@ -20,14 +20,35 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const (
+	// ClientCredentialsGrant applies to client credentials
+	ClientCredentialsGrant = "client_credentials"
+
+	// PasswordGrant is for the password grant
+	PasswordGrant = "password"
+)
+
+// skew for token expiry
+const expirationSkew = 5
+
 // Config describes a 2-legged OAuth2 flow, with both the
 // client application information and the server's endpoint URLs.
 type Config struct {
-	// ClientID is the application's ID.
+	// ClientID is the application's ID. This should be set for both
+	// password and client credentials grants
 	ClientID string
 
 	// ClientSecret is the application's secret.
 	ClientSecret string
+
+	// Username is the username (if using the password grant).
+	Username string
+
+	// Password is user's password (if using the password grant).
+	Password string
+
+	// GrantType is the auth grant type
+	GrantType string
 
 	// TokenURL is the resource server's token endpoint
 	// URL. This is a constant specific to each server.
@@ -75,13 +96,37 @@ type tokenSource struct {
 	conf *Config
 }
 
-// Token refreshes the token by using a new client credentials request.
+// KeycloakToken refreshes the token by using a new request.
 // tokens received this way do not include a refresh token
-func (c *tokenSource) Token() (*oauth2.Token, error) {
+func (c *tokenSource) KeycloakToken() (*Token, error) {
 	v := url.Values{}
+
+	// Set scopes
 	if len(c.conf.Scopes) > 0 {
 		v.Set("scope", strings.Join(c.conf.Scopes, " "))
 	}
+
+	// Set client_id and client_secret
+	if c.conf.ClientID != "" {
+		v.Set("client_id", c.conf.ClientID)
+	}
+	if c.conf.ClientSecret != "" {
+		v.Set("client_secret", c.conf.ClientSecret)
+	}
+
+	// Set grant type
+	if c.conf.GrantType != "" {
+		v.Set("grant_type", c.conf.GrantType)
+	}
+
+	// Set username and password
+	if c.conf.Username != "" {
+		v.Set("username", c.conf.Username)
+	}
+	if c.conf.Password != "" {
+		v.Set("password", c.conf.Password)
+	}
+
 	for k, p := range c.conf.EndpointParams {
 		if _, ok := v[k]; ok {
 			return nil, fmt.Errorf("keycloak oauth2: cannot overwrite parameter %q", k)
@@ -90,12 +135,9 @@ func (c *tokenSource) Token() (*oauth2.Token, error) {
 	}
 
 	req, err := http.NewRequest("POST", c.conf.TokenURL, strings.NewReader(v.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if c.conf.ClientID != "" {
-		req.SetBasicAuth(c.conf.ClientID, c.conf.ClientSecret)
 	}
 
 	r, err := ctxhttp.Do(c.ctx, c.conf.HTTPClient, req)
@@ -104,35 +146,42 @@ func (c *tokenSource) Token() (*oauth2.Token, error) {
 		return nil, err
 	}
 
+	if r.Body == nil {
+		return nil, fmt.Errorf("oauth2: empty keycloak auth response")
+	}
+
 	// nolint: errcheck
 	defer r.Body.Close()
 
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
-		return nil, fmt.Errorf("oauth2: cannot fetch token: %v", err)
+		return nil, fmt.Errorf("oauth2: cannot fetch keycloak token: %v", err)
 	}
 	if code := r.StatusCode; code < 200 || code > 299 {
-		return nil, fmt.Errorf("oauth2: cannot fetch token: %v\nResponse: %s", r.Status, body)
+		return nil, fmt.Errorf("oauth2: cannot fetch keycloak token: %v\nResponse: %s", r.Status, body)
 	}
 
-	var tokenRes struct {
-		RefreshToken string `json:"refresh_token"`
-		AccessToken  string `json:"access_token"`
-		TokenType    string `json:"token_type"`
-		IDToken      string `json:"id_token"`
-		ExpiresIn    int64  `json:"expires_in"` // relative seconds from now
-	}
+	tk := &Token{}
 
-	err = json.Unmarshal(body, &tokenRes)
+	err = json.Unmarshal(body, tk)
+
 	if err != nil {
 		return nil, err
 	}
 
-	tk := &oauth2.Token{
-		Expiry:       time.Now().Add(5 * time.Minute),
-		AccessToken:  tokenRes.AccessToken,
-		RefreshToken: tokenRes.RefreshToken,
-		TokenType:    tokenRes.TokenType,
+	tk.Expiry = time.Now().Add(time.Second * time.Duration(tk.ExpiresIn-expirationSkew))
+
+	return tk, nil
+}
+
+// Token returns the oauth2.Token representation of the keycloak token
+func (c *tokenSource) Token() (*oauth2.Token, error) {
+
+	tkn, err := c.KeycloakToken()
+
+	if err != nil {
+		return nil, err
 	}
-	return tk.WithExtra(body), nil
+
+	return tkn.Oauth2Token(), nil
 }
