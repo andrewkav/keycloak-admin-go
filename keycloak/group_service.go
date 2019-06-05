@@ -125,3 +125,30 @@ func (gs *GroupService) Delete(ctx context.Context, realm, ID string) error {
 
 	return err
 }
+
+// AddChild adds a child group to the group
+func (gs *GroupService) AddChild(ctx context.Context, realm, ID string, g GroupRepresentation) (childID string, err error) {
+	path := "/realms/{realm}/groups/{id}/children"
+
+	response, err := gs.client.newRequest(ctx).
+		SetPathParams(map[string]string{
+			"realm": realm,
+			"id":    ID,
+		}).
+		SetBody(g).
+		Post(path)
+
+	if err != nil {
+		return
+	}
+
+	location, err := url.Parse(response.Header().Get("Location"))
+	if err != nil {
+		return
+	}
+
+	components := strings.Split(location.Path, "/")
+	childID = components[len(components)-1]
+
+	return
+}
