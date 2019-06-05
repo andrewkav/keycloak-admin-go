@@ -152,3 +152,19 @@ func (gs *GroupService) AddChild(ctx context.Context, realm, ID string, g GroupR
 
 	return
 }
+
+// Members gets the members of the group
+func (gs *GroupService) Members(ctx context.Context, realm, ID string, params map[string]string) (users []UserRepresentation, err error) {
+	path := "/realms/{realm}/groups/{id}/members"
+
+	_, err = gs.client.newRequest(ctx).
+		SetQueryParams(params).
+		SetPathParams(map[string]string{
+			"realm": realm,
+			"id":    ID,
+		}).
+		SetResult(&users).
+		Get(path)
+
+	return
+}
