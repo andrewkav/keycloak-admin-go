@@ -154,6 +154,9 @@ func (gs *GroupService) AddChild(ctx context.Context, realm, ID string, g GroupR
 }
 
 // Members gets the members of the group
+// Params:
+// - first
+// - max
 func (gs *GroupService) Members(ctx context.Context, realm, ID string, params map[string]string) (users []UserRepresentation, err error) {
 	path := "/realms/{realm}/groups/{id}/members"
 
