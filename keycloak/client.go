@@ -22,8 +22,9 @@ type Client struct {
 	restClient *resty.Client
 
 	// Services for working with various keycloak resources
-	Users *UserService
-	Realm *RealmService
+	Users  *UserService
+	Realm  *RealmService
+	Groups *GroupService
 }
 
 // NewClient creates a new client instance set to talk to the keycloak service
@@ -39,6 +40,7 @@ func NewClient(u url.URL, c *http.Client) *Client {
 
 	client.Users = NewUserService(client)
 	client.Realm = NewRealmService(client)
+	client.Groups = NewGroupService(client)
 
 	return client
 }
