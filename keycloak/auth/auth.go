@@ -83,22 +83,22 @@ func (c *Config) Client(ctx context.Context) *http.Client {
 // client ID and client secret.
 //
 // Most users will use Config.Client instead.
-func (c *Config) TokenSource(ctx context.Context) oauth2.TokenSource {
-	source := &tokenSource{
+func (c *Config) TokenSource(ctx context.Context) *KCTokenSource {
+	source := &KCTokenSource{
 		ctx:  ctx,
 		conf: c,
 	}
-	return oauth2.ReuseTokenSource(nil, source)
+	return source
 }
 
-type tokenSource struct {
+type KCTokenSource struct {
 	ctx  context.Context
 	conf *Config
 }
 
 // KeycloakToken refreshes the token by using a new request.
 // tokens received this way do not include a refresh token
-func (c *tokenSource) KeycloakToken() (*Token, error) {
+func (c *KCTokenSource) KeycloakToken() (*Token, error) {
 	v := url.Values{}
 
 	// Set scopes
@@ -175,7 +175,7 @@ func (c *tokenSource) KeycloakToken() (*Token, error) {
 }
 
 // Token returns the oauth2.Token representation of the keycloak token
-func (c *tokenSource) Token() (*oauth2.Token, error) {
+func (c *KCTokenSource) Token() (*oauth2.Token, error) {
 
 	tkn, err := c.KeycloakToken()
 
